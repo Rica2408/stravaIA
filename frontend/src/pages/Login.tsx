@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getApiBaseUrl } from '@/lib/apiBaseUrl'
 import { useAuthStore } from '@/store/auth.store'
 
 const features = [
@@ -11,7 +12,7 @@ const features = [
 ]
 
 export function Login() {
-  const apiUrl = import.meta.env.VITE_API_URL
+  const apiUrl = getApiBaseUrl()
   const navigate = useNavigate()
   const token = useAuthStore((s) => s.token)
   const hydrated = useAuthStore((s) => s.hydrated)
@@ -23,6 +24,10 @@ export function Login() {
   }, [hydrated, token, navigate])
 
   const connect = () => {
+    if (!apiUrl) {
+      alert('Falta configurar VITE_API_URL con la URL del backend en Vercel.')
+      return
+    }
     window.location.href = `${apiUrl}/auth/strava`
   }
 

@@ -63,10 +63,26 @@ function mapStravaToContext(activities: StravaActivity[]): string {
     .join('\n')
 }
 
+function extractJsonObject(raw: string): unknown {
+  const text = raw.trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = (fenced ? fenced[1] : text).trim()
+  const jsonStart = candidate.indexOf('{')
+  const jsonEnd = candidate.lastIndexOf('}')
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    throw new Error('El plan no contenía un objeto JSON')
+  }
+  try {
+    return JSON.parse(candidate.slice(jsonStart, jsonEnd + 1))
+  } catch {
+    throw new Error('El JSON del plan llegó incompleto o mal formado')
+  }
+}
+
 export async function generateInitialPlan(userId: string, goal: Goal) {
   const accessToken = await getValidStravaAccessTokenForUser(userId)
   const eightWeeksAgo = Math.floor((Date.now() - 56 * 24 * 60 * 60 * 1000) / 1000)
-  const activities = await getAthleteActivities(accessToken, eightWeeksAgo, 200)
+  const activities = await getAthleteActivities(accessToken, eightWeeksAgo, 80)
 
   const system = `Eres un planificador de running experto. Debes responder SOLO con JSON válido sin markdown.
 El JSON debe cumplir exactamente esta forma:
@@ -95,7 +111,8 @@ Reglas:
 - Ajusta volumen inicial al nivel actual inferido de actividades, no al objetivo final.
 - La última semana antes de la fecha objetivo puede ser RACE si aplica.
 - plannedDistance en km. plannedPace en minutos decimales por km (ej. 5.5 = 5 min 30 s/km). plannedDuration en minutos enteros de sesión.
-- Genera al menos 4 semanas hacia adelante desde hoy.`
+- Genera exactamente 4 semanas hacia adelante desde hoy.
+- Máximo 4 sesiones por semana (sin notas largas; notes cortas o null).`
 
   const distLine =
     goal.targetDistanceKm != null ? `${goal.targetDistanceKm} km` : 'no especificada (solo tiempo o ritmo)'
@@ -113,48 +130,63 @@ Fecha objetivo: ${goal.targetDate.toISOString()}
 ACTIVIDADES (últimas ~8 semanas):
 ${mapStravaToContext(activities)}`
 
-  let text = ''
-  try {
-    const msg = await anthropic.messages.create({
-      model: CLAUDE_SONNET_MODEL,
-      max_tokens: 4096,
-      temperature: 0.4,
-      system,
-      messages: [{ role: 'user', content: userBlock }],
-    })
-    const usage = usageFromAnthropicMessage(msg)
-    await recordAiUsage({
-      userId,
-      operation: 'plan_generate',
-      model: CLAUDE_SONNET_MODEL,
-      ...usage,
-    })
-    const block = msg.content.find((b) => b.type === 'text')
-    if (!block || block.type !== 'text') {
-      throw new Error('Respuesta de Claude sin texto')
+  const userPrompts = [
+    userBlock,
+    `${userBlock}
+
+IMPORTANTE: responde SOLO con JSON compacto y completo, sin markdown ni texto extra. Exactamente 4 semanas y máximo 4 sesiones por semana.`,
+  ]
+
+  let parsed: z.infer<typeof initialPlanSchema> | null = null
+  let lastError = 'El plan inicial no contenía JSON válido'
+
+  for (let attempt = 0; attempt < userPrompts.length; attempt++) {
+    try {
+      const msg = await anthropic.messages.create({
+        model: CLAUDE_SONNET_MODEL,
+        max_tokens: 8192,
+        temperature: 0.35,
+        system,
+        messages: [{ role: 'user', content: userPrompts[attempt] }],
+      })
+      const usage = usageFromAnthropicMessage(msg)
+      await recordAiUsage({
+        userId,
+        operation: 'plan_generate',
+        model: CLAUDE_SONNET_MODEL,
+        ...usage,
+      })
+      const block = msg.content.find((b) => b.type === 'text')
+      if (!block || block.type !== 'text') {
+        lastError = 'Respuesta de Claude sin texto'
+        continue
+      }
+      if (msg.stop_reason === 'max_tokens') {
+        lastError = 'La respuesta del plan se cortó por límite de tokens'
+        continue
+      }
+      const parsedJson = extractJsonObject(block.text)
+      const validated = initialPlanSchema.safeParse(parsedJson)
+      if (!validated.success) {
+        lastError = 'El JSON del plan inicial no pasó la validación'
+        continue
+      }
+      parsed = validated.data
+      break
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : 'Error desconocido'
     }
-    text = block.text.trim()
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error desconocido'
-    throw new Error(`No se pudo generar el plan inicial con IA: ${message}`)
   }
 
-  const jsonStart = text.indexOf('{')
-  const jsonEnd = text.lastIndexOf('}')
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error('El plan inicial no contenía JSON válido')
-  }
-  const parsedJson = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as unknown
-  const parsed = initialPlanSchema.safeParse(parsedJson)
-  if (!parsed.success) {
-    throw new Error('El JSON del plan inicial no pasó la validación')
+  if (!parsed) {
+    throw new Error(`No se pudo generar el plan inicial con IA: ${lastError}`)
   }
 
   return prisma.$transaction(async (tx) => {
     const plan = await tx.trainingPlan.create({
       data: { goalId: goal.id },
     })
-    for (const w of parsed.data.weeks) {
+    for (const w of parsed.weeks) {
       const week = await tx.planWeek.create({
         data: {
           planId: plan.id,

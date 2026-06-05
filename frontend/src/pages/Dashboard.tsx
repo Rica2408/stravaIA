@@ -307,10 +307,11 @@ function GoalModal({ existingGoal, onClose, onSuccess }: GoalModalProps) {
       return
     }
     try {
+      const requestConfig = { timeout: 180_000 }
       if (existingGoal) {
-        await api.patch(`/api/goals/${existingGoal.id}`, body)
+        await api.patch(`/api/goals/${existingGoal.id}`, body, requestConfig)
       } else {
-        await api.post('/api/goals', body)
+        await api.post('/api/goals', body, requestConfig)
       }
       await onSuccess()
     } catch (e: unknown) {
@@ -360,8 +361,21 @@ function GoalModal({ existingGoal, onClose, onSuccess }: GoalModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="goal-modal-title"
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl sm:p-6"
+        aria-busy={busy}
+        className="relative max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl sm:p-6"
       >
+        {busy ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-slate-950/90 px-6 text-center backdrop-blur-sm">
+            <div
+              className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-orange-400"
+              aria-hidden
+            />
+            <p className="text-sm font-medium text-white">
+              {isEdit ? 'Regenerando tu plan con IA…' : 'Generando tu plan con IA…'}
+            </p>
+            <p className="text-xs text-slate-400">Puede tardar hasta 1–2 minutos. No cierres esta ventana.</p>
+          </div>
+        ) : null}
         <h3 id="goal-modal-title" className="text-lg font-semibold text-white">
           {isEdit ? 'Editar objetivo' : 'Define tu objetivo'}
         </h3>
@@ -495,7 +509,8 @@ function GoalModal({ existingGoal, onClose, onSuccess }: GoalModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] rounded-lg border border-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            disabled={busy}
+            className="min-h-[44px] rounded-lg border border-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Más tarde
           </button>

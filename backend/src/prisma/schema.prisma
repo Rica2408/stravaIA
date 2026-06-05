@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String   @id @default(cuid())
+  stravaId             Int      @unique
+  displayName          String
+  photoUrl             String?
+  city                 String?
+  country              String?
+  accessToken          String
+  refreshToken         String
+  tokenExpiresAt       DateTime
+  tokenVersion         Int      @default(0)
+  conversationSummary  String?  @db.Text
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  goals          Goal[]
+  activities     Activity[]
+  coachMessages  CoachMessage[]
+  shoes          Shoe[]
+}
+
+model Goal {
+  id                 String      @id @default(cuid())
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type               GoalType
+  description        String
+  /** Resumen numérico según tipo (p. ej. min carrera, km totales, min/km, min totales). */
+  targetValue        Float
+  targetDistanceKm   Float?
+  targetTimeMinutes  Float?
+  targetDate         DateTime
+  status             GoalStatus  @default(ACTIVE)
+  onTrack            TrackStatus @default(ON_TRACK)
+  createdAt          DateTime    @default(now())
+
+  plan TrainingPlan?
+}
+
+enum GoalType {
+  RACE_TIME
+  TOTAL_KM
+  PACE_TARGET
+  /** Minutos totales de running a acumular en el plazo (sin distancia fija). */
+  TIME_TOTAL
+}
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  ABANDONED
+}
+
+enum TrackStatus {
+  ON_TRACK
+  AT_RISK
+  DANGER
+}
+
+model TrainingPlan {
+  id        String     @id @default(cuid())
+  goalId    String     @unique
+  goal      Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  weeks     PlanWeek[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model PlanWeek {
+  id         String       @id @default(cuid())
+  planId     String
+  plan       TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weekNumber Int
+  weekStart  DateTime
+  weekType   WeekType
+  sessions   PlanSession[]
+}
+
+enum WeekType {
+  LOAD
+  RECOVERY
+  RACE
+}
+
+model PlanSession {
+  id              String        @id @default(cuid())
+  weekId          String
+  week            PlanWeek      @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  scheduledDate   DateTime
+  sessionType     SessionType
+  plannedDistance Float?
+  plannedPace     Float?
+  plannedDuration Int?
+  notes           String?
+  status          SessionStatus @default(PENDING)
+  activityId      String?
+  activity        Activity?     @relation(fields: [activityId], references: [id])
+}
+
+enum SessionType {
+  EASY
+  TEMPO
+  LONG
+  INTERVALS
+  REST
+  CROSS
+}
+
+enum SessionStatus {
+  PENDING
+  COMPLETED
+  MISSED
+  ADJUSTED
+}
+
+model Activity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stravaId      BigInt   @unique
+  name          String
+  type          String
+  startDate     DateTime
+  distance      Float
+  duration      Int
+  avgPace       Float?
+  avgHeartRate  Float?
+  maxHeartRate  Float?
+  elevationGain Float?
+  calories      Int?
+  mapPolyline   String?
+  debrief       String?  @db.Text
+  debriefAt     DateTime?
+  sessions      PlanSession[]
+  createdAt     DateTime @default(now())
+}
+
+model CoachMessage {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      MessageRole
+  content   String      @db.Text
+  type      MessageType @default(CHAT)
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime    @default(now())
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageType {
+  CHAT
+  DEBRIEF
+  PROACTIVE
+  BRIEFING
+}
+
+model Shoe {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stravaId  String   @unique
+  name      String
+  brand     String?
+  totalKm   Float    @default(0)
+  alertAtKm Float    @default(700)
+  retired   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

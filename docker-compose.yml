@@ -1,0 +1,23 @@
+# Postgres solo para desarrollo local.
+# Puerto 5433 en el host: en Windows suele haber ya Postgres nativo en 5432;
+# si ambos usan 5432, las migraciones pueden ir al servidor equivocado (P1000).
+# Uso:
+#   docker compose up -d
+# En backend/.env:
+#   DATABASE_URL="postgresql://strava:strava@localhost:5433/strava_coach"
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: strava-coach-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: strava
+      POSTGRES_PASSWORD: strava
+      POSTGRES_DB: strava_coach
+    ports:
+      - "5433:5432"
+    volumes:
+      - strava_pgdata:/var/lib/postgresql/data
+
+volumes:
+  strava_pgdata:

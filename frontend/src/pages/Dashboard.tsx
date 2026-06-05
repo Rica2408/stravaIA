@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import api from '@/services/api'
@@ -32,6 +32,17 @@ export function Dashboard() {
     open: false,
     editing: null,
   })
+  const goalModalDismissedRef = useRef(false)
+
+  const openGoalModal = (editing: GoalDto | null = null) => {
+    goalModalDismissedRef.current = false
+    setGoalModal({ open: true, editing })
+  }
+
+  const closeGoalModal = () => {
+    goalModalDismissedRef.current = true
+    setGoalModal({ open: false, editing: null })
+  }
 
   const weeksLeft = useMemo(() => {
     if (!goal) {
@@ -55,8 +66,8 @@ export function Dashboard() {
       setWeeks(pRes.data.weeks)
       setActivities(aRes.data.items)
       setChartActs(cRes.data.items)
-      if (!gRes.data.goal) {
-        setGoalModal({ open: true, editing: null })
+      if (!gRes.data.goal && !goalModalDismissedRef.current) {
+        openGoalModal()
       }
     } catch (e) {
       setError('No se pudo cargar el dashboard')
@@ -81,14 +92,14 @@ export function Dashboard() {
             onTrack={goal.onTrack}
             weeksLeft={weeksLeft}
             onChat={() => navigate('/coach')}
-            onEditGoal={() => setGoalModal({ open: true, editing: goal })}
+            onEditGoal={() => openGoalModal(goal)}
           />
         ) : (
           <section className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-300">
             <p>Crea un objetivo para activar el semáforo de progreso y el plan semanal.</p>
             <button
               type="button"
-              onClick={() => setGoalModal({ open: true, editing: null })}
+              onClick={() => openGoalModal()}
               className="mt-4 min-h-[44px] rounded-lg bg-strava px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               Definir objetivo
@@ -127,8 +138,9 @@ export function Dashboard() {
       {goalModal.open ? (
         <GoalModal
           existingGoal={goalModal.editing}
-          onClose={() => setGoalModal({ open: false, editing: null })}
+          onClose={closeGoalModal}
           onSuccess={async () => {
+            goalModalDismissedRef.current = false
             setGoalModal({ open: false, editing: null })
             await load()
           }}

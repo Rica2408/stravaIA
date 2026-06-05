@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { env } from '@/config/index.js'
 import { CLAUDE_HAIKU_MODEL, CLAUDE_SONNET_MODEL } from '@/lib/claudeModels.js'
+import { recordAiUsage, usageFromAnthropicMessage } from '@/lib/recordAiUsage.js'
 import { prisma } from '@/lib/prisma.js'
 import { applyPlanUpdateFromAssistant, getUpcomingPlanWeeksForUser, type PlanWeekWithSessions } from '@/services/plan.service.js'
 import { formatDurationSeconds, formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
@@ -50,7 +51,7 @@ function parseTrackStatus(text: string): TrackStatus | null {
  * Clasificación estricta antes del coach principal: evita gastar tokens y respuestas fuera de alcance.
  * Si la API falla, se deja pasar el mensaje (mejor un falso positivo que bloquear al atleta).
  */
-async function isCoachUserMessageOnTopic(userMessage: string): Promise<boolean> {
+async function isCoachUserMessageOnTopic(userId: string, userMessage: string): Promise<boolean> {
   const trimmed = userMessage.trim()
   if (trimmed.length === 0) {
     return false
@@ -73,6 +74,13 @@ async function isCoachUserMessageOnTopic(userMessage: string): Promise<boolean> 
             `Mensaje del usuario:\n"""${trimmed.slice(0, 4000)}"""`,
         },
       ],
+    })
+    const usage = usageFromAnthropicMessage(msg)
+    await recordAiUsage({
+      userId,
+      operation: 'coach_classify',
+      model: COACH_LIGHT_MODEL,
+      ...usage,
     })
     const part = msg.content.find((c) => c.type === 'text')
     if (!part || part.type !== 'text') {
@@ -141,6 +149,13 @@ async function maybeRefreshConversationSummary(userId: string): Promise<void> {
         },
       ],
     })
+    const usage = usageFromAnthropicMessage(msg)
+    await recordAiUsage({
+      userId,
+      operation: 'coach_summary',
+      model: COACH_LIGHT_MODEL,
+      ...usage,
+    })
     const part = msg.content.find((c) => c.type === 'text')
     if (!part || part.type !== 'text') {
       return
@@ -166,7 +181,7 @@ export async function sendMessage(
 }> {
   hitCoachRateLimit(userId)
 
-  const onTopic = await isCoachUserMessageOnTopic(userMessage)
+  const onTopic = await isCoachUserMessageOnTopic(userId, userMessage)
   if (!onTopic) {
     const exists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
     if (!exists) {
@@ -334,6 +349,13 @@ REGLAS:
       system,
       messages: anthropicMessages,
     })
+    const usage = usageFromAnthropicMessage(msg)
+    await recordAiUsage({
+      userId,
+      operation: 'coach_chat',
+      model: COACH_CHAT_MODEL,
+      ...usage,
+    })
     const part = msg.content.find((c) => c.type === 'text')
     if (!part || part.type !== 'text') {
       throw new Error('Respuesta vacía del coach')
@@ -426,6 +448,13 @@ ${activities
     temperature: 0.55,
     messages: [{ role: 'user', content: prompt }],
   })
+  const usage = usageFromAnthropicMessage(msg)
+  await recordAiUsage({
+    userId,
+    operation: 'coach_briefing',
+    model: COACH_LIGHT_MODEL,
+    ...usage,
+  })
   const part = msg.content.find((c) => c.type === 'text')
   if (!part || part.type !== 'text') {
     throw new Error('Briefing vacío')
@@ -511,6 +540,13 @@ Aquí está el plan generado (JSON):\n${planJson}\n
 Escribe un mensaje de bienvenida en español (máximo 3 párrafos) explicando la lógica general de las próximas semanas y cómo empezar mañana.`,
       },
     ],
+  })
+  const usage = usageFromAnthropicMessage(msg)
+  await recordAiUsage({
+    userId,
+    operation: 'coach_welcome',
+    model: COACH_LIGHT_MODEL,
+    ...usage,
   })
   const part = msg.content.find((c) => c.type === 'text')
   if (!part || part.type !== 'text') {

@@ -26,6 +26,21 @@ model User {
   activities     Activity[]
   coachMessages  CoachMessage[]
   shoes          Shoe[]
+  aiUsageLogs    AiUsageLog[]
+}
+
+model AiUsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation    String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model Goal {

@@ -22,6 +22,7 @@ const drawerLinkClass =
 export function LayoutChrome({ eyebrow, title, children, headerExtra }: LayoutChromeProps) {
   const navigate = useNavigate()
   const setToken = useAuthStore((s) => s.setToken)
+  const isAdmin = useAuthStore((s) => s.isAdmin)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navId = useId()
 
@@ -94,6 +95,11 @@ export function LayoutChrome({ eyebrow, title, children, headerExtra }: LayoutCh
               <Link to="/perfil" className={navLinkClass}>
                 Perfil
               </Link>
+              {isAdmin ? (
+                <Link to="/admin" className={navLinkClass}>
+                  Admin
+                </Link>
+              ) : null}
             </nav>
             {headerExtra ? <div className="ml-2 flex items-center gap-2 border-l border-slate-800 pl-2">{headerExtra}</div> : null}
             <button
@@ -146,6 +152,11 @@ export function LayoutChrome({ eyebrow, title, children, headerExtra }: LayoutCh
               <Link to="/perfil" className={drawerLinkClass} onClick={closeDrawer}>
                 Perfil en Strava
               </Link>
+              {isAdmin ? (
+                <Link to="/admin" className={drawerLinkClass} onClick={closeDrawer}>
+                  Admin · tokens IA
+                </Link>
+              ) : null}
               <hr className="my-2 border-slate-800" />
               <button type="button" className={drawerLinkClass} onClick={() => void handleLogout()}>
                 Cerrar sesión

@@ -4,6 +4,7 @@ import { encryptSecret } from '@/lib/cryptoTokens.js'
 import { signAccessToken } from '@/lib/jwt.js'
 import { prisma } from '@/lib/prisma.js'
 import { authMiddleware } from '@/middleware/auth.middleware.js'
+import { isStravaIdAdmin } from '@/lib/admin.js'
 import { exchangeCodeForTokens, getAuthorizationUrl } from '@/services/strava.service.js'
 import { syncActivitiesFromStrava } from '@/services/activities.service.js'
 
@@ -79,7 +80,7 @@ authRouter.get('/me', authMiddleware, async (req, res) => {
       res.status(404).json({ error: 'Usuario no encontrado' })
       return
     }
-    res.json({ user })
+    res.json({ user, isAdmin: isStravaIdAdmin(user.stravaId) })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error'
     res.status(500).json({ error: message })

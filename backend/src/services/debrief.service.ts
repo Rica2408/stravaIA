@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma.js'
 import { formatDurationSeconds, formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { CLAUDE_HAIKU_MODEL } from '@/lib/claudeModels.js'
+import { recordAiUsage, usageFromAnthropicMessage } from '@/lib/recordAiUsage.js'
 import { MessageType } from '@prisma/client'
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
@@ -75,6 +76,13 @@ Instrucciones:
       max_tokens: 700,
       temperature: 0.5,
       messages: [{ role: 'user', content: block }],
+    })
+    const usage = usageFromAnthropicMessage(msg)
+    await recordAiUsage({
+      userId,
+      operation: 'debrief',
+      model: CLAUDE_HAIKU_MODEL,
+      ...usage,
     })
     const part = msg.content.find((c) => c.type === 'text')
     if (!part || part.type !== 'text') {

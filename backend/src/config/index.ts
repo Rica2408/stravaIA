@@ -16,6 +16,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
   FRONTEND_URL: z.string().url(),
   TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
+  /** IDs numéricos de atleta Strava con acceso admin (separados por coma). */
+  ADMIN_STRAVA_IDS: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)

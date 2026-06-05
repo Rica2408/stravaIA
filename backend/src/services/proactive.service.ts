@@ -2,6 +2,7 @@ import { env } from '@/config/index.js'
 import { prisma } from '@/lib/prisma.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { CLAUDE_HAIKU_MODEL } from '@/lib/claudeModels.js'
+import { recordAiUsage, usageFromAnthropicMessage } from '@/lib/recordAiUsage.js'
 import { MessageType, SessionStatus } from '@prisma/client'
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
@@ -73,6 +74,13 @@ Objetivo: ${goal.description}`
         max_tokens: 500,
         temperature: 0.6,
         messages: [{ role: 'user', content: prompt }],
+      })
+      const usage = usageFromAnthropicMessage(msg)
+      await recordAiUsage({
+        userId: goal.userId,
+        operation: 'proactive',
+        model: CLAUDE_HAIKU_MODEL,
+        ...usage,
       })
       const part = msg.content.find((c) => c.type === 'text')
       if (!part || part.type !== 'text') {

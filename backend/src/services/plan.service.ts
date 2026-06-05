@@ -9,6 +9,7 @@ import { formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
 import { computeAvgPaceDecimalMinPerKmFromStrava } from '@/lib/stravaPace.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { CLAUDE_SONNET_MODEL } from '@/lib/claudeModels.js'
+import { recordAiUsage, usageFromAnthropicMessage } from '@/lib/recordAiUsage.js'
 import { Goal, Prisma, SessionStatus, SessionType, WeekType } from '@prisma/client'
 import { z } from 'zod'
 
@@ -120,6 +121,13 @@ ${mapStravaToContext(activities)}`
       temperature: 0.4,
       system,
       messages: [{ role: 'user', content: userBlock }],
+    })
+    const usage = usageFromAnthropicMessage(msg)
+    await recordAiUsage({
+      userId,
+      operation: 'plan_generate',
+      model: CLAUDE_SONNET_MODEL,
+      ...usage,
     })
     const block = msg.content.find((b) => b.type === 'text')
     if (!block || block.type !== 'text') {

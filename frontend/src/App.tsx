@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import api from '@/services/api'
 import { useAuthStore } from '@/store/auth.store'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
@@ -6,11 +8,24 @@ import { Coach } from '@/pages/Coach'
 import { PlanPage } from '@/pages/Plan'
 import { ActivityPage } from '@/pages/Activity'
 import { ProfilePage } from '@/pages/Profile'
+import { AdminPage } from '@/pages/Admin'
 
 function RequireAuth() {
   const token = useAuthStore((s) => s.token)
   const hydrated = useAuthStore((s) => s.hydrated)
+  const setIsAdmin = useAuthStore((s) => s.setIsAdmin)
   const location = useLocation()
+
+  useEffect(() => {
+    if (!token) {
+      setIsAdmin(false)
+      return
+    }
+    void api
+      .get<{ isAdmin?: boolean }>('/auth/me')
+      .then((res) => setIsAdmin(Boolean(res.data.isAdmin)))
+      .catch(() => setIsAdmin(false))
+  }, [token, setIsAdmin])
 
   if (!hydrated) {
     return (
@@ -35,6 +50,7 @@ export default function App() {
         <Route path="/plan" element={<PlanPage />} />
         <Route path="/activity/:id" element={<ActivityPage />} />
         <Route path="/perfil" element={<ProfilePage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

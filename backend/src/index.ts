@@ -9,6 +9,7 @@ import { goalsRouter } from '@/routes/goals.routes.js'
 import { planRouter } from '@/routes/plan.routes.js'
 import { webhookRouter } from '@/routes/webhook.routes.js'
 import { meRouter } from '@/routes/me.routes.js'
+import { adminRouter } from '@/routes/admin.routes.js'
 import { startScheduledJobs } from '@/jobs/inactivity.job.js'
 import { ensureStravaWebhookSubscription } from '@/services/strava.service.js'
 
@@ -55,6 +56,7 @@ app.use('/api/coach', coachRouter)
 app.use('/api/goals', goalsRouter)
 app.use('/api/plan', planRouter)
 app.use('/api/me', meRouter)
+app.use('/api/admin', adminRouter)
 app.use('/webhook', webhookRouter)
 
 app.get('/health', (_req, res) => {

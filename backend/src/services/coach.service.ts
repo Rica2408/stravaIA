@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { env } from '@/config/index.js'
+import { CLAUDE_HAIKU_MODEL, CLAUDE_SONNET_MODEL } from '@/lib/claudeModels.js'
 import { prisma } from '@/lib/prisma.js'
 import { applyPlanUpdateFromAssistant, getUpcomingPlanWeeksForUser, type PlanWeekWithSessions } from '@/services/plan.service.js'
 import { formatDurationSeconds, formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
@@ -8,7 +9,8 @@ import { Goal, MessageRole, MessageType, SessionStatus, TrackStatus } from '@pri
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
-const COACH_MODEL = 'claude-sonnet-4-20250514'
+const COACH_CHAT_MODEL = CLAUDE_SONNET_MODEL
+const COACH_LIGHT_MODEL = CLAUDE_HAIKU_MODEL
 
 /** Respuesta fija cuando el mensaje no es de consulta running/entreno (sin segunda respuesta “creativa”). */
 const OFF_TOPIC_COACH_REPLY =
@@ -56,7 +58,7 @@ async function isCoachUserMessageOnTopic(userMessage: string): Promise<boolean> 
 
   try {
     const msg = await anthropic.messages.create({
-      model: COACH_MODEL,
+      model: COACH_LIGHT_MODEL,
       max_tokens: 12,
       temperature: 0,
       messages: [
@@ -129,7 +131,7 @@ async function maybeRefreshConversationSummary(userId: string): Promise<void> {
   const transcript = oldest.map((m) => `${m.role}: ${m.content}`).join('\n---\n')
   try {
     const msg = await anthropic.messages.create({
-      model: COACH_MODEL,
+      model: COACH_LIGHT_MODEL,
       max_tokens: 400,
       temperature: 0.2,
       messages: [
@@ -326,7 +328,7 @@ REGLAS:
   let assistantRaw = ''
   try {
     const msg = await anthropic.messages.create({
-      model: COACH_MODEL,
+      model: COACH_CHAT_MODEL,
       max_tokens: 1200,
       temperature: 0.6,
       system,
@@ -419,7 +421,7 @@ ${activities
   .join('\n')}`
 
   const msg = await anthropic.messages.create({
-    model: COACH_MODEL,
+    model: COACH_LIGHT_MODEL,
     max_tokens: 1200,
     temperature: 0.55,
     messages: [{ role: 'user', content: prompt }],
@@ -498,7 +500,7 @@ export async function generateWelcomeAfterPlan(userId: string, goal: Goal): Prom
     2,
   )
   const msg = await anthropic.messages.create({
-    model: COACH_MODEL,
+    model: COACH_LIGHT_MODEL,
     max_tokens: 800,
     temperature: 0.55,
     messages: [

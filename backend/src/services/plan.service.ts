@@ -8,6 +8,7 @@ import {
 import { formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
 import { computeAvgPaceDecimalMinPerKmFromStrava } from '@/lib/stravaPace.js'
 import Anthropic from '@anthropic-ai/sdk'
+import { CLAUDE_SONNET_MODEL } from '@/lib/claudeModels.js'
 import { Goal, Prisma, SessionStatus, SessionType, WeekType } from '@prisma/client'
 import { z } from 'zod'
 
@@ -114,7 +115,7 @@ ${mapStravaToContext(activities)}`
   let text = ''
   try {
     const msg = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: CLAUDE_SONNET_MODEL,
       max_tokens: 4096,
       temperature: 0.4,
       system,

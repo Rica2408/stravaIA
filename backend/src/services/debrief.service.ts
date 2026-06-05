@@ -2,6 +2,7 @@ import { env } from '@/config/index.js'
 import { prisma } from '@/lib/prisma.js'
 import { formatDurationSeconds, formatPaceDecimalMinPerKm } from '@/lib/durationPaceFormat.js'
 import Anthropic from '@anthropic-ai/sdk'
+import { CLAUDE_HAIKU_MODEL } from '@/lib/claudeModels.js'
 import { MessageType } from '@prisma/client'
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
@@ -70,7 +71,7 @@ Instrucciones:
 
   try {
     const msg = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: CLAUDE_HAIKU_MODEL,
       max_tokens: 700,
       temperature: 0.5,
       messages: [{ role: 'user', content: block }],

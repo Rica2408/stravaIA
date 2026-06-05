@@ -1,6 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build"
+# En prod npm no instala devDependencies; hacen falta typescript y @types para compilar.
+buildCommand = "npm install --include=dev && npm run build"
 
 [deploy]
 startCommand = "npm run start:prod"
